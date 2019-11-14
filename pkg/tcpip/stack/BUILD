@@ -24,6 +24,7 @@ go_library(
         "linkaddrentry_list.go",
         "ndp.go",
         "nic.go",
+        "rand.go",
         "registration.go",
         "route.go",
         "stack.go",

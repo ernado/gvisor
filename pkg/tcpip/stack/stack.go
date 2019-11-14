@@ -422,6 +422,10 @@ type Stack struct {
 
 	// uniqueIDGenerator is a generator of unique identifiers.
 	uniqueIDGenerator UniqueID
+
+	// rng is a random number generator used for non cryptographically
+	// secure applications.
+	rng RNG
 }
 
 // UniqueID is an abstract generator of unique identifiers.
@@ -479,6 +483,11 @@ type Options struct {
 	// RawFactory produces raw endpoints. Raw endpoints are enabled only if
 	// this is non-nil.
 	RawFactory RawFactory
+
+	// RNG is a random number generator used for non cryptographically
+	// secure applications. If none is provided, the default global random
+	// number generator will be used from math/rand.
+	RNG RNG
 }
 
 // TransportEndpointInfo holds useful information about a transport endpoint
@@ -532,6 +541,11 @@ func New(opts Options) *Stack {
 	// Make sure opts.NDPConfigs contains valid values only.
 	opts.NDPConfigs.validate()
 
+	rng := opts.RNG
+	if rng == nil {
+		rng = &defaultRNG{}
+	}
+
 	s := &Stack{
 		transportProtocols:   make(map[tcpip.TransportProtocolNumber]*transportProtocolState),
 		networkProtocols:     make(map[tcpip.NetworkProtocolNumber]NetworkProtocol),
@@ -549,6 +563,7 @@ func New(opts Options) *Stack {
 		autoGenIPv6LinkLocal: opts.AutoGenIPv6LinkLocal,
 		uniqueIDGenerator:    opts.UniqueID,
 		ndpDisp:              opts.NDPDisp,
+		rng:                  rng,
 	}
 
 	// Add specified network protocols.
@@ -662,11 +677,40 @@ func (s *Stack) Stats() tcpip.Stats {
 }
 
 // SetForwarding enables or disables the packet forwarding between NICs.
+//
+// When forwarding changes state to enabled or disabled and the stack has IPv6
+// enabled, NDP Router Solicitations will be stopped or started, respectively.
 func (s *Stack) SetForwarding(enable bool) {
 	// TODO(igudger, bgeffon): Expose via /proc/sys/net/ipv4/ip_forward.
 	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// If forwarding status didn't change, do nothing further.
+	if s.forwarding == enable {
+		return
+	}
+
 	s.forwarding = enable
-	s.mu.Unlock()
+
+	// If this stack does not support IPv6, do nothing further.
+	if _, ok := s.networkProtocols[header.IPv6ProtocolNumber]; !ok {
+		return
+	}
+
+	// Start or stop IPv6 NDP Router Solicitation.
+	if enable {
+		// Previously forwarding was disabled but now it is enabled
+		// so stop soliciting IPv6 routers.
+		for _, nic := range s.nics {
+			nic.stopSolicitingIPv6Routers()
+		}
+	} else {
+		// Previously forwarding was enabled but now it is disabled
+		// so start soliciting IPv6 routers.
+		for _, nic := range s.nics {
+			nic.startSolicitingIPv6Routers()
+		}
+	}
 }
 
 // Forwarding returns if the packet forwarding between NICs is enabled.
