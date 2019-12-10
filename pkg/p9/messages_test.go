@@ -199,6 +199,25 @@ func TestEncodeDecode(t *testing.T) {
 			Offset:    2,
 			Count:     3,
 		},
+		&Tgetxattr{
+			FID:  1,
+			Name: "abc",
+		},
+		&Rgetxattr{
+			Value: "xyz",
+		},
+		&Tsetxattr{
+			FID:   1,
+			Name:  "abc",
+			Value: "xyz",
+			Flags: 2,
+		},
+		&Rsetxattr{},
+		&Treaddir{
+			Directory: 1,
+			Offset:    2,
+			Count:     3,
+		},
 		&Rreaddir{
 			// Count must be sufficient to encode a dirent.
 			Count:   0x18,

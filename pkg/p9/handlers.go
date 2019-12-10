@@ -942,6 +942,37 @@ func (t *Txattrcreate) handle(cs *connState) message {
 }
 
 // handle implements handler.handle.
+func (t *Tgetxattr) handle(cs *connState) message {
+	// Lookup the FID.
+	ref, ok := cs.LookupFID(t.FID)
+	if !ok {
+		return newErr(syscall.EBADF)
+	}
+	defer ref.DecRef()
+
+	val, err := ref.file.GetXattr(t.Name)
+	if err != nil {
+		return newErr(err)
+	}
+	return &Rgetxattr{Value: val}
+}
+
+// handle implements handler.handle.
+func (t *Tsetxattr) handle(cs *connState) message {
+	// Lookup the FID.
+	ref, ok := cs.LookupFID(t.FID)
+	if !ok {
+		return newErr(syscall.EBADF)
+	}
+	defer ref.DecRef()
+
+	if err := ref.file.SetXattr(t.Name, t.Value, t.Flags); err != nil {
+		return newErr(err)
+	}
+	return &Rsetxattr{}
+}
+
+// handle implements handler.handle.
 func (t *Treaddir) handle(cs *connState) message {
 	// Lookup the FID.
 	ref, ok := cs.LookupFID(t.Directory)

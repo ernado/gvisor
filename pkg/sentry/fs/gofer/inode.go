@@ -604,6 +604,16 @@ func (i *inodeOperations) Truncate(ctx context.Context, inode *fs.Inode, length 
 	return i.fileState.file.setAttr(ctx, p9.SetAttrMask{Size: true}, p9.SetAttr{Size: uint64(length)})
 }
 
+// GetXattr implements fs.InodeOperations.GetXattr.
+func (i *inodeOperations) GetXattr(ctx context.Context, inode *fs.Inode, name string) (string, error) {
+	return i.fileState.file.getXattr(ctx, name)
+}
+
+// SetXattr implements fs.InodeOperations.SetXattr.
+func (i *inodeOperations) SetXattr(ctx context.Context, inode *fs.Inode, name string, value string, flags uint32) error {
+	return i.fileState.file.setXattr(ctx, name, value, flags)
+}
+
 // Allocate implements fs.InodeOperations.Allocate.
 func (i *inodeOperations) Allocate(ctx context.Context, inode *fs.Inode, offset, length int64) error {
 	// This can only be called for files anyway.
