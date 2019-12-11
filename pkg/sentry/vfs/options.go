@@ -46,6 +46,12 @@ type MknodOptions struct {
 	DevMinor uint32
 }
 
+// MountOptions contains options to VirtualFilesystem.MountAt().
+type MountOptions struct {
+	// GetFilesystemOptions contains options to FilesystemType.GetFilesystem().
+	GetFilesystemOptions GetFilesystemOptions
+}
+
 // OpenOptions contains options to VirtualFilesystem.OpenAt() and
 // FilesystemImpl.OpenAt().
 type OpenOptions struct {
@@ -77,6 +83,9 @@ type ReadOptions struct {
 type RenameOptions struct {
 	// Flags contains flags as specified for renameat2(2).
 	Flags uint32
+
+	// If MustBeDir is true, the renamed file must be a directory.
+	MustBeDir bool
 }
 
 // SetStatOptions contains options to VirtualFilesystem.SetStatAt(),
@@ -93,6 +102,20 @@ type SetStatOptions struct {
 	// == UTIME_OMIT (VFS users must unset the corresponding bit in Stat.Mask
 	// instead).
 	Stat linux.Statx
+}
+
+// SetxattrOptions contains options to VirtualFilesystem.SetxattrAt(),
+// FilesystemImpl.SetxattrAt(), FileDescription.Setxattr(), and
+// FileDescriptionImpl.Setxattr().
+type SetxattrOptions struct {
+	// Name is the name of the extended attribute being mutated.
+	Name string
+
+	// Value is the extended attribute's new value.
+	Value string
+
+	// Flags contains flags as specified for setxattr/lsetxattr/fsetxattr(2).
+	Flags uint32
 }
 
 // StatOptions contains options to VirtualFilesystem.StatAt(),
@@ -112,6 +135,12 @@ type StatOptions struct {
 	// linux.AT_STATX_SYNC_AS_STAT (which is 0, and therefore the default),
 	// linux.AT_STATX_SYNC_FORCE_SYNC, or linux.AT_STATX_SYNC_DONT_SYNC.
 	Sync uint32
+}
+
+// UmountOptions contains options to VirtualFilesystem.UmountAt().
+type UmountOptions struct {
+	// Flags contains flags as specified for umount2(2).
+	Flags uint32
 }
 
 // WriteOptions contains options to FileDescription.PWrite(),

@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"gvisor.dev/gvisor/pkg/abi/linux"
+	"gvisor.dev/gvisor/pkg/fspath"
 	"gvisor.dev/gvisor/pkg/sentry/context"
 	"gvisor.dev/gvisor/pkg/sentry/fsimpl/ext/disklayout"
 	"gvisor.dev/gvisor/pkg/sentry/vfs"
@@ -274,6 +275,16 @@ func (fs *filesystem) GetDentryAt(ctx context.Context, rp *vfs.ResolvingPath, op
 	return vfsd, nil
 }
 
+// GetParentDentryAt implements vfs.FilesystemImpl.GetParentDentryAt.
+func (fs *filesystem) GetParentDentryAt(ctx context.Context, rp *vfs.ResolvingPath) (*vfs.Dentry, error) {
+	vfsd, inode, err := fs.walk(rp, true)
+	if err != nil {
+		return nil, err
+	}
+	inode.incRef()
+	return vfsd, nil
+}
+
 // OpenAt implements vfs.FilesystemImpl.OpenAt.
 func (fs *filesystem) OpenAt(ctx context.Context, rp *vfs.ResolvingPath, opts vfs.OpenOptions) (*vfs.FileDescription, error) {
 	vfsd, inode, err := fs.walk(rp, false)
@@ -377,7 +388,7 @@ func (fs *filesystem) MknodAt(ctx context.Context, rp *vfs.ResolvingPath, opts v
 }
 
 // RenameAt implements vfs.FilesystemImpl.RenameAt.
-func (fs *filesystem) RenameAt(ctx context.Context, rp *vfs.ResolvingPath, vd vfs.VirtualDentry, opts vfs.RenameOptions) error {
+func (fs *filesystem) RenameAt(ctx context.Context, rp *vfs.ResolvingPath, oldParentVD vfs.VirtualDentry, oldName string, opts vfs.RenameOptions) error {
 	if rp.Done() {
 		return syserror.ENOENT
 	}
@@ -440,4 +451,47 @@ func (fs *filesystem) UnlinkAt(ctx context.Context, rp *vfs.ResolvingPath) error
 	}
 
 	return syserror.EROFS
+}
+
+// ListxattrAt implements vfs.FilesystemImpl.ListxattrAt.
+func (fs *filesystem) ListxattrAt(ctx context.Context, rp *vfs.ResolvingPath) ([]string, error) {
+	_, _, err := fs.walk(rp, false)
+	if err != nil {
+		return nil, err
+	}
+	return nil, syserror.ENOTSUP
+}
+
+// GetxattrAt implements vfs.FilesystemImpl.GetxattrAt.
+func (fs *filesystem) GetxattrAt(ctx context.Context, rp *vfs.ResolvingPath, name string) (string, error) {
+	_, _, err := fs.walk(rp, false)
+	if err != nil {
+		return "", err
+	}
+	return "", syserror.ENOTSUP
+}
+
+// SetxattrAt implements vfs.FilesystemImpl.SetxattrAt.
+func (fs *filesystem) SetxattrAt(ctx context.Context, rp *vfs.ResolvingPath, opts vfs.SetxattrOptions) error {
+	_, _, err := fs.walk(rp, false)
+	if err != nil {
+		return err
+	}
+	return syserror.ENOTSUP
+}
+
+// RemovexattrAt implements vfs.FilesystemImpl.RemovexattrAt.
+func (fs *filesystem) RemovexattrAt(ctx context.Context, rp *vfs.ResolvingPath, name string) error {
+	_, _, err := fs.walk(rp, false)
+	if err != nil {
+		return err
+	}
+	return syserror.ENOTSUP
+}
+
+// PrependPath implements vfs.FilesystemImpl.PrependPath.
+func (fs *filesystem) PrependPath(ctx context.Context, vfsroot, vd vfs.VirtualDentry, b *fspath.Builder) error {
+	fs.mu.RLock()
+	defer fs.mu.RUnlock()
+	return vfs.GenericPrependPath(vfsroot, vd, b)
 }

@@ -85,11 +85,11 @@ type Dentry struct {
 	// mounts is accessed using atomic memory operations.
 	mounts uint32
 
-	// mu synchronizes disowning and mounting over this Dentry.
-	mu sync.Mutex
-
 	// children are child Dentries.
 	children map[string]*Dentry
+
+	// mu synchronizes disowning and mounting over this Dentry.
+	mu sync.Mutex
 
 	// impl is the DentryImpl associated with this Dentry. impl is immutable.
 	// This should be the last field in Dentry.
@@ -199,6 +199,18 @@ func (d *Dentry) HasChildren() bool {
 	return len(d.children) != 0
 }
 
+// Children returns a map containing all of d's children.
+func (d *Dentry) Children() map[string]*Dentry {
+	if !d.HasChildren() {
+		return nil
+	}
+	m := make(map[string]*Dentry)
+	for name, child := range d.children {
+		m[name] = child
+	}
+	return m
+}
+
 // InsertChild makes child a child of d with the given name.
 //
 // InsertChild is a mutator of d and child.
@@ -220,6 +232,18 @@ func (d *Dentry) InsertChild(child *Dentry, name string) {
 	d.children[name] = child
 	child.parent = d
 	child.name = name
+}
+
+// IsAncestorOf returns true if d is an ancestor of d2; that is, d is either
+// d2's parent or an ancestor of d2's parent.
+func (d *Dentry) IsAncestorOf(d2 *Dentry) bool {
+	for d2.parent != nil {
+		if d2.parent == d {
+			return true
+		}
+		d2 = d2.parent
+	}
+	return false
 }
 
 // PrepareDeleteDentry must be called before attempting to delete the file
@@ -271,21 +295,6 @@ func (vfs *VirtualFilesystem) CommitDeleteDentry(d *Dentry) {
 	}
 }
 
-// DeleteDentry combines PrepareDeleteDentry and CommitDeleteDentry, as
-// appropriate for in-memory filesystems that don't need to ensure that some
-// external state change succeeds before committing the deletion.
-//
-// DeleteDentry is a mutator of d and d.Parent().
-//
-// Preconditions: d is a child Dentry.
-func (vfs *VirtualFilesystem) DeleteDentry(mntns *MountNamespace, d *Dentry) error {
-	if err := vfs.PrepareDeleteDentry(mntns, d); err != nil {
-		return err
-	}
-	vfs.CommitDeleteDentry(d)
-	return nil
-}
-
 // ForceDeleteDentry causes d to become disowned. It should only be used in
 // cases where VFS has no ability to stop the deletion (e.g. d represents the
 // local state of a file on a remote filesystem on which the file has already
@@ -314,7 +323,7 @@ func (vfs *VirtualFilesystem) ForceDeleteDentry(d *Dentry) {
 // CommitRenameExchangeDentry depending on the rename's outcome.
 //
 // Preconditions: from is a child Dentry. If to is not nil, it must be a child
-// Dentry from the same Filesystem.
+// Dentry from the same Filesystem. from != to.
 func (vfs *VirtualFilesystem) PrepareRenameDentry(mntns *MountNamespace, from, to *Dentry) error {
 	if checkInvariants {
 		if from.parent == nil {
