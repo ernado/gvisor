@@ -79,7 +79,7 @@ func TestDADDisabled(t *testing.T) {
 		NetworkProtocols: []stack.NetworkProtocol{ipv6.NewProtocol()},
 	}
 
-	e := channel.New(10, 1280, linkAddr1)
+	e := channel.New(0, 1280, linkAddr1)
 	s := stack.New(opts)
 	if err := s.CreateNIC(1, e); err != nil {
 		t.Fatalf("CreateNIC(_) = %s", err)
@@ -306,6 +306,8 @@ func TestDADResolve(t *testing.T) {
 	}
 
 	for _, test := range tests {
+		test := test
+
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -496,7 +498,7 @@ func TestDADFail(t *testing.T) {
 			}
 			opts.NDPConfigs.RetransmitTimer = time.Second * 2
 
-			e := channel.New(10, 1280, linkAddr1)
+			e := channel.New(0, 1280, linkAddr1)
 			s := stack.New(opts)
 			if err := s.CreateNIC(1, e); err != nil {
 				t.Fatalf("CreateNIC(_) = %s", err)
@@ -577,7 +579,7 @@ func TestDADStop(t *testing.T) {
 		NDPConfigs:       ndpConfigs,
 	}
 
-	e := channel.New(10, 1280, linkAddr1)
+	e := channel.New(0, 1280, linkAddr1)
 	s := stack.New(opts)
 	if err := s.CreateNIC(1, e); err != nil {
 		t.Fatalf("CreateNIC(_) = %s", err)
@@ -678,7 +680,7 @@ func TestSetNDPConfigurations(t *testing.T) {
 			ndpDisp := ndpDispatcher{
 				dadC: make(chan ndpDADEvent),
 			}
-			e := channel.New(10, 1280, linkAddr1)
+			e := channel.New(0, 1280, linkAddr1)
 			s := stack.New(stack.Options{
 				NetworkProtocols: []stack.NetworkProtocol{ipv6.NewProtocol()},
 				NDPDisp:          &ndpDisp,
@@ -879,8 +881,6 @@ func raBufWithPI(ip tcpip.Address, rl uint16, prefix tcpip.AddressWithPrefix, on
 // TestNoRouterDiscovery tests that router discovery will not be performed if
 // configured not to.
 func TestNoRouterDiscovery(t *testing.T) {
-	t.Parallel()
-
 	// Being configured to discover routers means handle and
 	// discover are set to true and forwarding is set to false.
 	// This tests all possible combinations of the configurations,
@@ -896,9 +896,9 @@ func TestNoRouterDiscovery(t *testing.T) {
 			t.Parallel()
 
 			ndpDisp := ndpDispatcher{
-				routerC: make(chan ndpRouterEvent, 10),
+				routerC: make(chan ndpRouterEvent, 1),
 			}
-			e := channel.New(10, 1280, linkAddr1)
+			e := channel.New(0, 1280, linkAddr1)
 			s := stack.New(stack.Options{
 				NetworkProtocols: []stack.NetworkProtocol{ipv6.NewProtocol()},
 				NDPConfigs: stack.NDPConfigurations{
@@ -918,7 +918,7 @@ func TestNoRouterDiscovery(t *testing.T) {
 			select {
 			case <-ndpDisp.routerC:
 				t.Fatal("unexpectedly discovered a router when configured not to")
-			case <-time.After(defaultTimeout):
+			default:
 			}
 		})
 	}
@@ -930,9 +930,9 @@ func TestRouterDiscoveryDispatcherNoRemember(t *testing.T) {
 	t.Parallel()
 
 	ndpDisp := ndpDispatcher{
-		routerC: make(chan ndpRouterEvent, 10),
+		routerC: make(chan ndpRouterEvent, 1),
 	}
-	e := channel.New(10, 1280, linkAddr1)
+	e := channel.New(0, 1280, linkAddr1)
 	s := stack.New(stack.Options{
 		NetworkProtocols: []stack.NetworkProtocol{ipv6.NewProtocol()},
 		NDPConfigs: stack.NDPConfigurations{
@@ -969,8 +969,8 @@ func TestRouterDiscoveryDispatcherNoRemember(t *testing.T) {
 		if !r.discovered {
 			t.Fatal("got r.discovered = false, want = true")
 		}
-	case <-time.After(defaultTimeout):
-		t.Fatal("timeout waiting for router discovery event")
+	default:
+		t.Fatal("expected router discovery event")
 	}
 
 	// Original route table should not have been modified.
@@ -997,10 +997,10 @@ func TestRouterDiscovery(t *testing.T) {
 	t.Parallel()
 
 	ndpDisp := ndpDispatcher{
-		routerC:        make(chan ndpRouterEvent, 10),
+		routerC:        make(chan ndpRouterEvent, 1),
 		rememberRouter: true,
 	}
-	e := channel.New(10, 1280, linkAddr1)
+	e := channel.New(0, 1280, linkAddr1)
 	s := stack.New(stack.Options{
 		NetworkProtocols: []stack.NetworkProtocol{ipv6.NewProtocol()},
 		NDPConfigs: stack.NDPConfigurations{
@@ -1039,7 +1039,7 @@ func TestRouterDiscovery(t *testing.T) {
 	select {
 	case <-ndpDisp.routerC:
 		t.Fatal("unexpectedly discovered a router with 0 lifetime")
-	case <-time.After(defaultTimeout):
+	default:
 	}
 
 	// Rx an RA from lladdr2 with a huge lifetime.
@@ -1067,7 +1067,7 @@ func TestRouterDiscovery(t *testing.T) {
 	select {
 	case <-ndpDisp.routerC:
 		t.Fatal("Should not receive a router event when updating lifetimes for known routers")
-	case <-time.After(defaultTimeout):
+	default:
 	}
 
 	// Should still have a default route through the discovered routers.
@@ -1130,10 +1130,10 @@ func TestRouterDiscoveryMaxRouters(t *testing.T) {
 	t.Parallel()
 
 	ndpDisp := ndpDispatcher{
-		routerC:        make(chan ndpRouterEvent, 10),
+		routerC:        make(chan ndpRouterEvent, 1),
 		rememberRouter: true,
 	}
-	e := channel.New(10, 1280, linkAddr1)
+	e := channel.New(0, 1280, linkAddr1)
 	s := stack.New(stack.Options{
 		NetworkProtocols: []stack.NetworkProtocol{ipv6.NewProtocol()},
 		NDPConfigs: stack.NDPConfigurations{
@@ -1170,15 +1170,15 @@ func TestRouterDiscoveryMaxRouters(t *testing.T) {
 				if !r.discovered {
 					t.Fatal("got r.discovered = false, want = true")
 				}
-			case <-time.After(defaultTimeout):
-				t.Fatal("timeout waiting for router discovery event")
+			default:
+				t.Fatal("expected router discovery event")
 			}
 
 		} else {
 			select {
 			case <-ndpDisp.routerC:
 				t.Fatal("should not have discovered a new router after we already discovered the max number of routers")
-			case <-time.After(defaultTimeout):
+			default:
 			}
 		}
 	}
@@ -1193,8 +1193,6 @@ func TestRouterDiscoveryMaxRouters(t *testing.T) {
 // TestNoPrefixDiscovery tests that prefix discovery will not be performed if
 // configured not to.
 func TestNoPrefixDiscovery(t *testing.T) {
-	t.Parallel()
-
 	prefix := tcpip.AddressWithPrefix{
 		Address:   tcpip.Address("\x01\x02\x03\x04\x05\x06\x07\x08\x00\x00\x00\x00\x00\x00\x00\x00"),
 		PrefixLen: 64,
@@ -1215,9 +1213,9 @@ func TestNoPrefixDiscovery(t *testing.T) {
 			t.Parallel()
 
 			ndpDisp := ndpDispatcher{
-				prefixC: make(chan ndpPrefixEvent, 10),
+				prefixC: make(chan ndpPrefixEvent, 1),
 			}
-			e := channel.New(10, 1280, linkAddr1)
+			e := channel.New(0, 1280, linkAddr1)
 			s := stack.New(stack.Options{
 				NetworkProtocols: []stack.NetworkProtocol{ipv6.NewProtocol()},
 				NDPConfigs: stack.NDPConfigurations{
@@ -1238,7 +1236,7 @@ func TestNoPrefixDiscovery(t *testing.T) {
 			select {
 			case <-ndpDisp.prefixC:
 				t.Fatal("unexpectedly discovered a prefix when configured not to")
-			case <-time.After(defaultTimeout):
+			default:
 			}
 		})
 	}
@@ -1252,9 +1250,9 @@ func TestPrefixDiscoveryDispatcherNoRemember(t *testing.T) {
 	prefix, subnet, _ := prefixSubnetAddr(0, "")
 
 	ndpDisp := ndpDispatcher{
-		prefixC: make(chan ndpPrefixEvent, 10),
+		prefixC: make(chan ndpPrefixEvent, 1),
 	}
-	e := channel.New(10, 1280, linkAddr1)
+	e := channel.New(0, 1280, linkAddr1)
 	s := stack.New(stack.Options{
 		NetworkProtocols: []stack.NetworkProtocol{ipv6.NewProtocol()},
 		NDPConfigs: stack.NDPConfigurations{
@@ -1292,8 +1290,8 @@ func TestPrefixDiscoveryDispatcherNoRemember(t *testing.T) {
 		if !r.discovered {
 			t.Fatal("got r.discovered = false, want = true")
 		}
-	case <-time.After(defaultTimeout):
-		t.Fatal("timeout waiting for prefix discovery event")
+	default:
+		t.Fatal("expected prefix discovery event")
 	}
 
 	// Original route table should not have been modified.
@@ -1324,10 +1322,10 @@ func TestPrefixDiscovery(t *testing.T) {
 	prefix3, subnet3, _ := prefixSubnetAddr(2, "")
 
 	ndpDisp := ndpDispatcher{
-		prefixC:        make(chan ndpPrefixEvent, 10),
+		prefixC:        make(chan ndpPrefixEvent, 1),
 		rememberPrefix: true,
 	}
-	e := channel.New(10, 1280, linkAddr1)
+	e := channel.New(0, 1280, linkAddr1)
 	s := stack.New(stack.Options{
 		NetworkProtocols: []stack.NetworkProtocol{ipv6.NewProtocol()},
 		NDPConfigs: stack.NDPConfigurations{
@@ -1366,7 +1364,7 @@ func TestPrefixDiscovery(t *testing.T) {
 	select {
 	case <-ndpDisp.prefixC:
 		t.Fatal("unexpectedly discovered a prefix with 0 lifetime")
-	case <-time.After(defaultTimeout):
+	default:
 	}
 
 	// Receive an RA with prefix1 in an NDP Prefix Information option (PI)
@@ -1412,7 +1410,7 @@ func TestPrefixDiscovery(t *testing.T) {
 	select {
 	case <-ndpDisp.prefixC:
 		t.Fatal("unexpectedly received prefix event when updating lifetime")
-	case <-time.After(defaultTimeout):
+	default:
 	}
 
 	// Should not have updated route table.
@@ -1458,10 +1456,10 @@ func TestPrefixDiscoveryWithInfiniteLifetime(t *testing.T) {
 	subnet := prefix.Subnet()
 
 	ndpDisp := ndpDispatcher{
-		prefixC:        make(chan ndpPrefixEvent, 10),
+		prefixC:        make(chan ndpPrefixEvent, 1),
 		rememberPrefix: true,
 	}
-	e := channel.New(10, 1280, linkAddr1)
+	e := channel.New(0, 1280, linkAddr1)
 	s := stack.New(stack.Options{
 		NetworkProtocols: []stack.NetworkProtocol{ipv6.NewProtocol()},
 		NDPConfigs: stack.NDPConfigurations{
@@ -1546,7 +1544,7 @@ func TestPrefixDiscoveryMaxOnLinkPrefixes(t *testing.T) {
 		prefixC:        make(chan ndpPrefixEvent, stack.MaxDiscoveredOnLinkPrefixes+3),
 		rememberPrefix: true,
 	}
-	e := channel.New(10, 1280, linkAddr1)
+	e := channel.New(0, 1280, linkAddr1)
 	s := stack.New(stack.Options{
 		NetworkProtocols: []stack.NetworkProtocol{ipv6.NewProtocol()},
 		NDPConfigs: stack.NDPConfigurations{
@@ -1602,14 +1600,14 @@ func TestPrefixDiscoveryMaxOnLinkPrefixes(t *testing.T) {
 				if !r.discovered {
 					t.Fatal("got r.discovered = false, want = true")
 				}
-			case <-time.After(defaultTimeout):
-				t.Fatal("timeout waiting for prefix discovery event")
+			default:
+				t.Fatal("expected prefix discovery event")
 			}
 		} else {
 			select {
 			case <-ndpDisp.prefixC:
 				t.Fatal("should not have discovered a new prefix after we already discovered the max number of prefixes")
-			case <-time.After(defaultTimeout):
+			default:
 			}
 		}
 	}
@@ -1639,8 +1637,6 @@ func contains(list []tcpip.ProtocolAddress, item tcpip.AddressWithPrefix) bool {
 
 // TestNoAutoGenAddr tests that SLAAC is not performed when configured not to.
 func TestNoAutoGenAddr(t *testing.T) {
-	t.Parallel()
-
 	prefix, _, _ := prefixSubnetAddr(0, "")
 
 	// Being configured to auto-generate addresses means handle and
@@ -1658,9 +1654,9 @@ func TestNoAutoGenAddr(t *testing.T) {
 			t.Parallel()
 
 			ndpDisp := ndpDispatcher{
-				autoGenAddrC: make(chan ndpAutoGenAddrEvent, 10),
+				autoGenAddrC: make(chan ndpAutoGenAddrEvent, 1),
 			}
-			e := channel.New(10, 1280, linkAddr1)
+			e := channel.New(0, 1280, linkAddr1)
 			s := stack.New(stack.Options{
 				NetworkProtocols: []stack.NetworkProtocol{ipv6.NewProtocol()},
 				NDPConfigs: stack.NDPConfigurations{
@@ -1681,7 +1677,7 @@ func TestNoAutoGenAddr(t *testing.T) {
 			select {
 			case <-ndpDisp.autoGenAddrC:
 				t.Fatal("unexpectedly auto-generated an address when configured not to")
-			case <-time.After(defaultTimeout):
+			default:
 			}
 		})
 	}
@@ -1702,9 +1698,9 @@ func TestAutoGenAddr(t *testing.T) {
 	prefix2, _, addr2 := prefixSubnetAddr(1, linkAddr1)
 
 	ndpDisp := ndpDispatcher{
-		autoGenAddrC: make(chan ndpAutoGenAddrEvent, 10),
+		autoGenAddrC: make(chan ndpAutoGenAddrEvent, 1),
 	}
-	e := channel.New(10, 1280, linkAddr1)
+	e := channel.New(0, 1280, linkAddr1)
 	s := stack.New(stack.Options{
 		NetworkProtocols: []stack.NetworkProtocol{ipv6.NewProtocol()},
 		NDPConfigs: stack.NDPConfigurations{
@@ -1743,7 +1739,7 @@ func TestAutoGenAddr(t *testing.T) {
 	select {
 	case <-ndpDisp.autoGenAddrC:
 		t.Fatal("unexpectedly auto-generated an address with 0 lifetime")
-	case <-time.After(defaultTimeout):
+	default:
 	}
 
 	// Receive an RA with prefix1 in an NDP Prefix Information option (PI)
@@ -1760,7 +1756,7 @@ func TestAutoGenAddr(t *testing.T) {
 	select {
 	case <-ndpDisp.autoGenAddrC:
 		t.Fatal("unexpectedly auto-generated an address with preferred lifetime > valid lifetime")
-	case <-time.After(defaultTimeout):
+	default:
 	}
 
 	// Receive an RA with prefix2 in a PI.
@@ -1778,7 +1774,7 @@ func TestAutoGenAddr(t *testing.T) {
 	select {
 	case <-ndpDisp.autoGenAddrC:
 		t.Fatal("unexpectedly auto-generated an address when we already have an address for a prefix")
-	case <-time.After(defaultTimeout):
+	default:
 	}
 
 	// Wait for addr of prefix1 to be invalidated.
@@ -1872,78 +1868,88 @@ func TestAutoGenAddrValidLifetimeUpdates(t *testing.T) {
 
 	const delta = 500 * time.Millisecond
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
+	// This t.Run wraps the other t.Run-s so that we can guarantee that
+	// the deferred function above gets run only after all of our sub-tests
+	// complete.
+	t.Run("Inner", func(t *testing.T) {
+		for _, test := range tests {
+			test := test
 
-			ndpDisp := ndpDispatcher{
-				autoGenAddrC: make(chan ndpAutoGenAddrEvent, 10),
-			}
-			e := channel.New(10, 1280, linkAddr1)
-			s := stack.New(stack.Options{
-				NetworkProtocols: []stack.NetworkProtocol{ipv6.NewProtocol()},
-				NDPConfigs: stack.NDPConfigurations{
-					HandleRAs:              true,
-					AutoGenGlobalAddresses: true,
-				},
-				NDPDisp: &ndpDisp,
+			t.Run(test.name, func(t *testing.T) {
+				t.Parallel()
+
+				ndpDisp := ndpDispatcher{
+					autoGenAddrC: make(chan ndpAutoGenAddrEvent, 10),
+				}
+				e := channel.New(10, 1280, linkAddr1)
+				s := stack.New(stack.Options{
+					NetworkProtocols: []stack.NetworkProtocol{ipv6.NewProtocol()},
+					NDPConfigs: stack.NDPConfigurations{
+						HandleRAs:              true,
+						AutoGenGlobalAddresses: true,
+					},
+					NDPDisp: &ndpDisp,
+				})
+
+				if err := s.CreateNIC(1, e); err != nil {
+					t.Fatalf("CreateNIC(1) = %s", err)
+				}
+
+				// Receive an RA with prefix with initial VL,
+				// test.ovl.
+				e.InjectInbound(header.IPv6ProtocolNumber, raBufWithPI(llAddr2, 0, prefix, true, true, test.ovl, 0))
+				select {
+				case r := <-ndpDisp.autoGenAddrC:
+					if r.nicID != 1 {
+						t.Fatalf("got r.nicID = %d, want = 1", r.nicID)
+					}
+					if r.addr != addr {
+						t.Fatalf("got r.addr = %s, want = %s", r.addr, addr)
+					}
+					if r.eventType != newAddr {
+						t.Fatalf("got r.eventType = %v, want = %v", r.eventType, newAddr)
+					}
+				default:
+					t.Fatal("expected addr auto gen event")
+				}
+
+				// Receive an new RA with prefix with new VL,
+				// test.nvl.
+				e.InjectInbound(header.IPv6ProtocolNumber, raBufWithPI(llAddr2, 0, prefix, true, true, test.nvl, 0))
+
+				//
+				// Validate that the VL for the address got set
+				// to test.evl.
+				//
+
+				// Make sure we do not get any invalidation
+				// events until atleast 500ms (delta) before
+				// test.evl.
+				select {
+				case <-ndpDisp.autoGenAddrC:
+					t.Fatalf("unexpectedly received an auto gen addr event")
+				case <-time.After(time.Duration(test.evl)*time.Second - delta):
+				}
+
+				// Wait for another second (2x delta), but now
+				// we expect the invalidation event.
+				select {
+				case r := <-ndpDisp.autoGenAddrC:
+					if r.nicID != 1 {
+						t.Fatalf("got r.nicID = %d, want = 1", r.nicID)
+					}
+					if r.addr != addr {
+						t.Fatalf("got r.addr = %s, want = %s", r.addr, addr)
+					}
+					if r.eventType != invalidatedAddr {
+						t.Fatalf("got r.eventType = %v, want = %v", r.eventType, newAddr)
+					}
+				case <-time.After(2 * delta):
+					t.Fatal("timeout waiting for addr auto gen event")
+				}
 			})
-
-			if err := s.CreateNIC(1, e); err != nil {
-				t.Fatalf("CreateNIC(1) = %s", err)
-			}
-
-			// Receive an RA with prefix with initial VL, test.ovl.
-			e.InjectInbound(header.IPv6ProtocolNumber, raBufWithPI(llAddr2, 0, prefix, true, true, test.ovl, 0))
-			select {
-			case r := <-ndpDisp.autoGenAddrC:
-				if r.nicID != 1 {
-					t.Fatalf("got r.nicID = %d, want = 1", r.nicID)
-				}
-				if r.addr != addr {
-					t.Fatalf("got r.addr = %s, want = %s", r.addr, addr)
-				}
-				if r.eventType != newAddr {
-					t.Fatalf("got r.eventType = %v, want = %v", r.eventType, newAddr)
-				}
-			case <-time.After(defaultTimeout):
-				t.Fatal("timeout waiting for addr auto gen event")
-			}
-
-			// Receive an new RA with prefix with new VL, test.nvl.
-			e.InjectInbound(header.IPv6ProtocolNumber, raBufWithPI(llAddr2, 0, prefix, true, true, test.nvl, 0))
-
-			//
-			// Validate that the VL for the address got set to
-			// test.evl.
-			//
-
-			// Make sure we do not get any invalidation events
-			// until atleast 500ms (delta) before test.evl.
-			select {
-			case <-ndpDisp.autoGenAddrC:
-				t.Fatalf("unexpectedly received an auto gen addr event")
-			case <-time.After(time.Duration(test.evl)*time.Second - delta):
-			}
-
-			// Wait for another second (2x delta), but now we expect
-			// the invalidation event.
-			select {
-			case r := <-ndpDisp.autoGenAddrC:
-				if r.nicID != 1 {
-					t.Fatalf("got r.nicID = %d, want = 1", r.nicID)
-				}
-				if r.addr != addr {
-					t.Fatalf("got r.addr = %s, want = %s", r.addr, addr)
-				}
-				if r.eventType != invalidatedAddr {
-					t.Fatalf("got r.eventType = %v, want = %v", r.eventType, newAddr)
-				}
-			case <-time.After(2 * delta):
-				t.Fatal("timeout waiting for addr auto gen event")
-			}
-		})
-	}
+		}
+	})
 }
 
 // TestAutoGenAddrRemoval tests that when auto-generated addresses are removed
@@ -1955,9 +1961,9 @@ func TestAutoGenAddrRemoval(t *testing.T) {
 	prefix, _, addr := prefixSubnetAddr(0, linkAddr1)
 
 	ndpDisp := ndpDispatcher{
-		autoGenAddrC: make(chan ndpAutoGenAddrEvent, 10),
+		autoGenAddrC: make(chan ndpAutoGenAddrEvent, 1),
 	}
-	e := channel.New(10, 1280, linkAddr1)
+	e := channel.New(0, 1280, linkAddr1)
 	s := stack.New(stack.Options{
 		NetworkProtocols: []stack.NetworkProtocol{ipv6.NewProtocol()},
 		NDPConfigs: stack.NDPConfigurations{
@@ -1985,8 +1991,8 @@ func TestAutoGenAddrRemoval(t *testing.T) {
 		if r.eventType != newAddr {
 			t.Fatalf("got r.eventType = %v, want = %v", r.eventType, newAddr)
 		}
-	case <-time.After(defaultTimeout):
-		t.Fatal("timeout waiting for addr auto gen event")
+	default:
+		t.Fatal("expected addr auto gen event")
 	}
 
 	// Remove the address.
@@ -2006,8 +2012,8 @@ func TestAutoGenAddrRemoval(t *testing.T) {
 		if r.eventType != invalidatedAddr {
 			t.Fatalf("got r.eventType = %v, want = %v", r.eventType, newAddr)
 		}
-	case <-time.After(defaultTimeout):
-		t.Fatal("timeout waiting for addr auto gen event")
+	default:
+		t.Fatal("expected addr auto gen event")
 	}
 
 	// Wait for the original valid lifetime to make sure the original timer
@@ -2027,9 +2033,9 @@ func TestAutoGenAddrStaticConflict(t *testing.T) {
 	prefix, _, addr := prefixSubnetAddr(0, linkAddr1)
 
 	ndpDisp := ndpDispatcher{
-		autoGenAddrC: make(chan ndpAutoGenAddrEvent, 10),
+		autoGenAddrC: make(chan ndpAutoGenAddrEvent, 1),
 	}
-	e := channel.New(10, 1280, linkAddr1)
+	e := channel.New(0, 1280, linkAddr1)
 	s := stack.New(stack.Options{
 		NetworkProtocols: []stack.NetworkProtocol{ipv6.NewProtocol()},
 		NDPConfigs: stack.NDPConfigurations{
@@ -2058,7 +2064,7 @@ func TestAutoGenAddrStaticConflict(t *testing.T) {
 	select {
 	case <-ndpDisp.autoGenAddrC:
 		t.Fatal("unexpectedly received an auto gen addr event for an address we already have statically")
-	case <-time.After(defaultTimeout):
+	default:
 	}
 	if !contains(s.NICInfo()[1].ProtocolAddresses, addr) {
 		t.Fatalf("Should have %s in the list of addresses", addr1)
